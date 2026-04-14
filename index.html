@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartSaver | Gent 购物订单记录</title>
+    <meta
+      name="description"
+      content="SmartSaver 是一个为 Gent 日常采购准备的简化版订单记录页。先看常去超市，再手动记一单。"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">SmartSaver Gent</p>
+          <h1>先选超市，再手动记一单。</h1>
+          <p class="hero-copy">
+            我把页面改成了更直接的订单流：上面看 Gent 常去超市，下面只保留手动添加订单和最近记录。
+            原来的复杂对比逻辑退到最底部，变成简单参考，不再抢你的注意力。
+          </p>
+        </div>
+        <div class="hero-note">
+          <strong>图片说明</strong>
+          <p>
+            门店卡片图片来自 2026 年 4 月 12 日查验的官方门店页或官方门店素材。
+            页面内保留了官网入口，方便你直接跳回原站查看。
+          </p>
+        </div>
+      </header>
+
+      <main>
+        <section class="section">
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="eyebrow">Gent 超市</p>
+              <h2>常去门店放在最前面。</h2>
+            </div>
+            <p class="section-copy">点“记这家”会直接把门店带入下面的订单表单。</p>
+          </div>
+          <div id="storeGrid" class="store-grid" aria-live="polite"></div>
+        </section>
+
+        <section class="section workspace">
+          <div class="order-panel">
+            <div class="section-heading compact-heading">
+              <div>
+                <p class="eyebrow">手动添加订单</p>
+                <h2>记住这次买了什么、花了多少。</h2>
+              </div>
+            </div>
+
+            <form id="orderForm" class="order-form">
+              <label>
+                超市
+                <select id="storeSelect" name="storeId"></select>
+              </label>
+
+              <label>
+                日期
+                <input id="orderDate" name="orderedAt" type="date" required />
+              </label>
+
+              <label>
+                总价（欧元）
+                <input id="orderTotal" name="total" type="number" min="0" step="0.01" placeholder="例如 26.40" required />
+              </label>
+
+              <label class="full-span">
+                买了什么
+                <textarea
+                  id="orderBasket"
+                  name="basket"
+                  rows="4"
+                  placeholder="例如：燕麦、酸奶、鸡蛋、卷纸"
+                  required
+                ></textarea>
+              </label>
+
+              <label class="full-span">
+                备注
+                <textarea
+                  id="orderNote"
+                  name="note"
+                  rows="3"
+                  placeholder="例如：今天主要是补早餐；卷纸没买到便宜的"
+                ></textarea>
+              </label>
+
+              <button class="button button-primary full-span" type="submit">保存这笔订单</button>
+            </form>
+
+            <p id="formFeedback" class="feedback" aria-live="polite"></p>
+          </div>
+
+          <aside class="summary-panel">
+            <div class="section-heading compact-heading no-margin">
+              <div>
+                <p class="eyebrow">订单概览</p>
+                <h2>只保留最必要的 3 个数。</h2>
+              </div>
+            </div>
+            <div id="statsGrid" class="stats-grid" aria-live="polite"></div>
+          </aside>
+        </section>
+
+        <section class="section">
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="eyebrow">最近订单</p>
+              <h2>回看最近几次买菜和补货。</h2>
+            </div>
+            <label class="filter-field">
+              只看某家店
+              <select id="orderFilter"></select>
+            </label>
+          </div>
+          <div id="ordersList" class="orders-list" aria-live="polite"></div>
+        </section>
+
+        <section class="section soft-section">
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="eyebrow">简化后的价格参考</p>
+              <h2>旧的比价能力不删，只缩成一排提示。</h2>
+            </div>
+            <p class="section-copy">这部分仍然读取你原先的价格基准库，但不再占据主界面。</p>
+          </div>
+          <div id="referenceGrid" class="reference-grid" aria-live="polite"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="./data/prices.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
