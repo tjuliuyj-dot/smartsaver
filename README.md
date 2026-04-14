@@ -1,143 +1,178 @@
-# 🛒 BuyCompare — 个人智能比价与健康购物助手
+# 🛒 SmartSaver — Smart Price Comparison & Healthy Shopping Assistant
 
-**文档版本：** v1.1
-**状态：** MVP 规划阶段
-**最后更新：** 2026-04-11
+> **Your personal mobile supermarket brain — scan, compare, save.**
+
+![Status](https://img.shields.io/badge/Status-MVP%20Planning-blue)
+![Version](https://img.shields.io/badge/Version-1.1-green)
+![Updated](https://img.shields.io/badge/Updated-2026--04--11-lightgrey)
 
 ---
 
-## 1. 产品愿景
+## 1. Product Vision
 
-BuyCompare 致力于成为用户的"私人移动超市外脑"。
+SmartSaver aims to be your personal "mobile supermarket brain".
+
+Simply take a photo of a price tag, product packaging, or receipt with your phone — the AI model will automatically parse and structure the product and pricing data, gradually building your personal cross-store price benchmark database. The system helps you instantly calculate the real unit price in complex promotional environments (e.g., "how much does each roll actually cost?"), and combined with health indicators like Nutri-Score, provides the smartest purchasing decisions.
+
+---
+
+## 2. Target Users & Core Scenarios
+
+**Target Users:** Budget-conscious consumers who shop across multiple supermarkets (OKay, Albert Heijn, Kruidvat, Delhaize) and have health-conscious dietary needs (low sugar, low fat).
+
+| Scenario | Description |
+| :--- | :--- |
+| **Shelf Hesitation** | Facing two toilet papers with different specs — which one is actually cheaper per roll? |
+| **Spot Fake Deals** | Seeing a discount tag — is it really cheaper than your historical lowest price elsewhere? |
+| **Health Check** | Comparing two cereal boxes — quickly find the one with no added sugar |
+| **Post-Shopping Review** | Upload your receipt after checkout to automatically update your personal "price floor database" |
+
+---
+
+## 3. Core Features
+
+### 3.1 AI Vision Scanner (Smart Multi-Modal Input)
+
+- **FR-1.1 Price Tag Recognition:** Photograph a price tag to auto-extract product name, brand, current price, and package specification (e.g., 8 rolls, 500g)
+- **FR-1.2 Receipt Parsing:** Photograph a receipt to auto-identify store name, date, and batch-convert all items to structured data
+- **FR-1.3 Manual Input Fallback:** When image quality is poor or AI fails, users can manually enter product info
+- **FR-1.4 Unit Standardization:** Backend auto-calculates unified comparison units, e.g., `€/kg`, `€/L`, `€/roll`, `€/100g`
+
+> ⚠️ **Unit Note:** "8-roll pack" and "4-roll double-layer pack" cannot be directly compared. The system needs preset conversion rules (e.g., double-layer = 1.5× standard roll), prompting users for confirmation when uncertain.
+
+### 3.2 Cross-Store Price Database
+
+- **FR-2.1 Price Timeline:** Track the same product's price fluctuations across stores, auto-marking the historical lowest price
+- **FR-2.2 Product Deduplication:** Match scanned products with existing records via barcode or AI fuzzy name matching
+- **FR-2.3 Cross-Brand Comparison:** Support manually binding different brands of the same category (e.g., AH wood pulp tissue vs Everyday tissue)
+
+### 3.3 Live Decision Assistant
+
+- **FR-3.1 Shelf PK Mode:** Photograph two products simultaneously, or compare the current product with historical data, outputting a recommendation (e.g., "Choose the left one — 15% cheaper per unit and higher Nutri-Score")
+- **FR-3.2 Health Indicator Extraction:** Identify Nutri-Score labels or extract key ingredients (e.g., `0% Added Sugar`, `High Protein`)
+- **FR-3.3 Price Traffic Light:** Instant display of current price vs personal historical average (green = good deal, red = overpriced)
+
+### 3.4 User Account
+
+- **FR-4.1 Login/Register:** Email or Google login, ensuring price data is bound to personal accounts with multi-device sync
+
+---
+
+## 4. Data Model
+
+| Table | Key Fields | Description |
+| :--- | :--- | :--- |
+| **Users** | `id`, `email`, `created_at` | User accounts, basis for data isolation |
+| **Products** | `id`, `name`, `brand`, `category`, `barcode`, `nutri_score` | Common product info, barcode for precise dedup |
+| **Stores** | `id`, `name`, `chain` (e.g., AH), `location` | Store info |
+| **Price_History** | `id`, `product_id`, `store_id`, `user_id`, `price`, `unit_type`, `unit_price`, `scanned_at`, `is_promotion` | Core price database, real price records per scan |
+| **Scans** | `id`, `user_id`, `image_url`, `ai_raw_output`, `status`, `created_at` | Raw scan logs for traceability and AI accuracy optimization |
+
+---
+
+## 5. Tech Stack
+
+### MVP Architecture (Solo Dev, Rapid Launch)
+
+```
+Frontend (Next.js PWA)
+    ↓ API Routes
+AI Engine (Gemini API)   ←→   Database (Supabase / PostgreSQL)
+```
+
+| Layer | Technology | Rationale |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js 15 (React) + Tailwind CSS | Built-in API Routes, no separate backend needed; PWA supports camera access |
+| **AI Engine** | Google Gemini API (multimodal) | Direct image input, structured JSON output, no OCR training needed |
+| **Database** | Supabase (hosted PostgreSQL) | Built-in auth, file storage, real-time subscriptions, zero ops |
+| **Deployment** | Vercel | Seamless Next.js integration, free tier sufficient for MVP |
+
+### AI Prompt Example
+
+```
+You are a supermarket price tag parser. Analyze the image and return JSON:
+{
+  "name": "Product name",
+  "brand": "Brand",
+  "total_price": number (EUR),
+  "quantity": number,
+  "unit": "unit (roll/g/L/pc)",
+  "is_promotion": true/false
+}
+Set any unrecognizable field to null.
+```
+
+---
+
+## 6. Roadmap
+
+### Phase 1 — MVP Core
+
+- [ ] Next.js project init, PWA config (camera access)
+- [ ] Gemini API integration: price tag image → structured JSON
+- [ ] Supabase schema, price entry & unit price display
+- [ ] User login/register (Supabase Auth)
+- [ ] Manual input fallback UI
+
+### Phase 2 — Price Memory
+
+- [ ] Product deduplication (barcode first, AI name matching fallback)
+- [ ] Price timeline visualization
+- [ ] Price traffic light (current vs personal historical average)
+- [ ] Cross-brand same-category binding
+
+### Phase 3 — Receipt Batch & Health Mode
+
+- [ ] Full receipt recognition, batch import
+- [ ] Nutri-Score & nutrition label extraction
+- [ ] Shelf PK mode (dual product comparison)
+- [ ] PWA offline cache (for poor in-store network)
+
+---
+
+## 7. Open Decisions
+
+Two key questions to resolve before coding:
+
+1. **Where does cold-start data come from?**
+   - Option A (recommended for MVP): Use only user-scanned historical data. No cross-store comparison initially, but simple and compliant.
+   - Option B (future expansion): Pre-load public price data or connect to store APIs (requires compliance review).
+
+2. **How to confirm "same product"?**
+   - Primarily use barcode for exact matching.
+   - Without barcode, AI compares product name + specs. Auto-link if similarity exceeds threshold; otherwise prompt user confirmation.
+
+---
+
+# 🛒 SmartSaver — 个人智能比价与健康购物助手
+
+> **你的私人移动超市外脑 — 拍照、比价、省钱。**
+
+---
+
+## 产品愿景
 
 用户只需用手机拍摄价签、商品包装或购物小票，AI 大模型将自动解析并结构化商品与价格数据，逐步建立起个人专属的跨超市价格基准库。系统帮助用户在复杂的促销环境中瞬间算出真实单价（如"每卷纸实际多少钱"），并结合 Nutri-Score 等健康指标，给出最聪明的购买决策。
 
----
+## 目标用户
 
-## 2. 目标用户与核心场景
+习惯在多家超市（OKay、Albert Heijn、Kruidvat、Delhaize）比价购物、对物价敏感，且有一定健康饮食需求（控糖、减脂）的消费者。
 
-**核心用户：** 习惯在多家超市（OKay、Albert Heijn、Kruidvat、Delhaize）比价购物、对物价敏感，且有一定健康饮食需求（控糖、减脂）的消费者。
+## 核心功能
 
-| 场景 | 描述 |
+| 功能 | 说明 |
 | :--- | :--- |
-| **货架前犹豫** | 面对两款规格不同、品牌不同的卫生纸，不知道哪个性价比更高 |
-| **识破假促销** | 看到打折标签，想知道是否比自己在其他超市的历史底价更便宜 |
-| **健康筛查** | 面对两包麦片，快速比较配料表，找出无额外添加糖的那一款 |
-| **购物后复盘** | 结账后上传小票，自动更新个人"价格底线库"供下次参考 |
+| 📸 **AI 拍照识别** | 拍摄价签/小票，自动提取商品名称、价格、规格 |
+| 📊 **跨店比价库** | 记录历史价格波动，自动标记最低价 |
+| 🚦 **比价红绿灯** | 实时显示当前价格与历史均价对比 |
+| 🏷️ **货架 PK** | 两款商品对比，输出推荐结论 |
+| 🥗 **健康指标** | 识别 Nutri-Score、无糖、高蛋白等标识 |
+| 🧾 **小票批量录入** | 购物后上传小票，批量更新价格库 |
+
+## 技术栈
+
+`Next.js 15` · `Tailwind CSS` · `Google Gemini API` · `Supabase` · `Vercel`
 
 ---
 
-## 3. 核心功能需求
-
-### 3.1 智能多模态录入 (AI Vision Scanner)
-
-- **FR-1.1 价签识别：** 拍摄超市价签，自动提取 `商品名称`、`品牌`、`当前价格`、`包装规格（如 8卷、500g）`。
-- **FR-1.2 小票解析：** 拍摄购物小票，自动识别超市名称、购买日期，并将所有条目批量转化为结构化数据。
-- **FR-1.3 手动录入兜底：** 当图片质量差或 AI 识别失败时，用户可手动输入商品信息，确保数据完整性。
-- **FR-1.4 标准化换算：** 后台自动计算统一比价单位，例如 `€/kg`、`€/L`、`€/卷`、`€/100g`。
-
-> ⚠️ **单位标准化说明：** "8卷装"与"4卷双层装"不能直接比较，系统需要预设换算规则（如双层 = 1.5倍标准卷），并在无法确定时提示用户手动确认。
-
-### 3.2 跨店历史比价库 (Cross-Store Price Database)
-
-- **FR-2.1 价格时间线：** 记录同一商品在不同超市的历史价格波动，并自动标记历史最低价。
-- **FR-2.2 商品去重与关联：** 当扫描到已有记录的商品时，通过条形码或 AI 模糊名称匹配将其与历史数据关联；无法自动判断时，弹出确认弹窗由用户确认。
-- **FR-2.3 跨品牌同类对比：** 支持将不同品牌的同类商品（如 AH 原木卷纸 vs Everyday 卷纸）手动绑定为同一比价品类。
-
-### 3.3 现场智能决策 (Live Decision Assistant)
-
-- **FR-3.1 货架 PK 模式：** 同时拍摄两款商品，或将当前商品与历史数据对比，输出推荐结论（例如："推荐左侧，单价便宜 15% 且 Nutri-Score 评分更高"）。
-- **FR-3.2 健康指标提取：** 识别包装上的 Nutri-Score 标识，或提取关键配料词（如 `0% Added Sugar`、`High Protein`）。
-- **FR-3.3 比价红绿灯：** 扫描后即时展示当前价格相对于个人历史均价的高低（绿色 = 好价，红色 = 偏贵）。
-
-### 3.4 用户账户 (User Account)
-
-- **FR-4.1 登录注册：** 支持邮箱或 Google 账号登录，确保价格数据与个人账户绑定，多设备同步。
-
----
-
-## 4. 数据模型
-
-| 数据表 | 核心字段 | 说明 |
-| :--- | :--- | :--- |
-| **Users** | `id`, `email`, `created_at` | 用户账户，数据隔离的基础 |
-| **Products** | `id`, `name`, `brand`, `category`, `barcode`, `nutri_score` | 商品通用信息，barcode 用于精确去重 |
-| **Stores** | `id`, `name`, `chain`（如 AH）, `location` | 超市门店信息 |
-| **Price_History** | `id`, `product_id`, `store_id`, `user_id`, `price`, `unit_type`, `unit_price`, `scanned_at`, `is_promotion` | 核心比价库，每次扫描的真实价格记录 |
-| **Scans** | `id`, `user_id`, `image_url`, `ai_raw_output`, `status`, `created_at` | 原始扫描日志，用于溯源和 AI 准确率优化 |
-
----
-
-## 5. 技术架构
-
-### MVP 推荐方案（单人开发，快速上线）
-
-```
-前端 (Next.js PWA)
-    ↓ API Routes
-AI 调用 (Gemini API)   ←→   数据库 (Supabase / PostgreSQL)
-```
-
-| 层级 | 技术选型 | 理由 |
-| :--- | :--- | :--- |
-| **前端** | Next.js 15 (React) + Tailwind CSS | 内置 API Routes，无需单独后端服务；PWA 支持摄像头调用 |
-| **AI 引擎** | Google Gemini API (multimodal) | 直接传入图片，返回结构化 JSON，无需训练 OCR 模型 |
-| **数据库** | Supabase (托管 PostgreSQL) | 内置用户认证、文件存储、实时订阅，免运维 |
-| **部署** | Vercel | 与 Next.js 无缝集成，免费额度足够 MVP 使用 |
-
-> **说明：** PRD v1.0 中建议的 FastAPI 后端在 MVP 阶段可以省去——Next.js API Routes 足以处理 AI 调用和数据清洗。待用户量增长后，可将复杂逻辑迁移至独立的 Python 服务。
-
-### AI Prompt 设计示例
-
-```
-你是一个超市价签解析助手。请分析图片中的价签，以 JSON 格式返回以下信息：
-{
-  "name": "商品名称",
-  "brand": "品牌",
-  "total_price": 数字（欧元）,
-  "quantity": 数字,
-  "unit": "单位（卷/g/L/个）",
-  "is_promotion": true/false
-}
-如无法识别某字段，请设为 null。
-```
-
----
-
-## 6. 开发路线图
-
-### Phase 1 — MVP 核心打通
-
-- [ ] Next.js 项目初始化，配置 PWA（摄像头调用）
-- [ ] 接入 Gemini API，实现价签图片 → 结构化 JSON
-- [ ] Supabase 建表，实现价格录入与单价展示
-- [ ] 用户登录注册（Supabase Auth）
-- [ ] 手动录入兜底界面
-
-### Phase 2 — 比价记忆库
-
-- [ ] 商品去重逻辑（条形码优先，AI 名称匹配兜底）
-- [ ] 价格时间线展示
-- [ ] 比价红绿灯（当前价 vs 个人历史均价）
-- [ ] 同类商品跨品牌绑定
-
-### Phase 3 — 小票批量与健康模式
-
-- [ ] 购物小票整张识别，批量入库
-- [ ] Nutri-Score 及营养成分表提取
-- [ ] 货架 PK 模式（双商品对比推荐）
-- [ ] PWA 离线缓存（应对超市网络差的场景）
-
----
-
-## 7. 待决策事项
-
-在开始编码前，需要明确以下两个关键问题：
-
-1. **冷启动数据从哪里来？**
-   - 方案 A（推荐 MVP）：仅使用用户自己扫描积累的历史数据，初期无跨店比较，但简单合规。
-   - 方案 B（后期扩展）：预置部分公开价格数据或接入超市公开 API（需评估合规性）。
-
-2. **如何确认"同一商品"？**
-   - 优先使用条形码（Barcode）精确匹配。
-   - 无条形码时，AI 比较商品名称 + 规格，相似度高于阈值则自动关联，否则弹窗由用户确认。
+*MIT License*
