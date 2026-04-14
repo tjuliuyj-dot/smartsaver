@@ -1,438 +1,663 @@
 (function () {
-  const seedRecords = Array.isArray(window.SMART_SAVER_SEED) ? window.SMART_SAVER_SEED : [];
-  const orderStorageKey = "smart-saver-orders-v1";
+  "use strict";
 
-  const storeCatalog = [
-    {
-      id: "okay",
-      shortName: "OKay",
-      displayName: "OKay Gent",
-      badgeClass: "okay",
-      address: "Voskenslaan 228, 9000 Gent",
-      image: "./assets/okay-gent-official.jpg",
-      imageAlt: "OKay Gent 官方门店图片",
-      sourceUrl: "https://www.okay.be/fr/nos-magasins/okay-gent",
-      note: "官网门店图与地址来自 OKay Gent 官方门店页。"
-    },
-    {
-      id: "ah",
-      shortName: "Albert Heijn",
-      displayName: "AH Overpoortstraat",
-      badgeClass: "ah",
-      address: "Overpoortstraat 49 A, 9000 Gent",
-      image: "./assets/ah-overpoort-official.png",
-      imageAlt: "AH Overpoortstraat 官方门店页截图",
-      sourceUrl: "https://www.ah.be/winkel/3026",
-      note: "图片来自 AH Overpoortstraat 官方门店页截图。"
-    },
-    {
-      id: "delhaize",
-      shortName: "Delhaize",
-      displayName: "Delhaize Gent Ster",
-      badgeClass: "delhaize",
-      address: "Kortrijksesteenweg 906, 9000 Gent",
-      image: "./assets/delhaize-gent-ster-official.png",
-      imageAlt: "Delhaize Gent Ster 官方门店图片",
-      sourceUrl: "https://stores.delhaize.be/fr/delhaize-gent-ster",
-      note: "图片来自 Delhaize Gent Ster 官方门店图库。"
-    }
-  ];
+  // ─── Data Sources ──────────────────────────────────────────────────────────
+  var seedRecords = Array.isArray(window.SMART_SAVER_SEED) ? window.SMART_SAVER_SEED : [];
+  
+  var userStorageKey = "smart-saver-user-prices-v2";
+  var photoStorageKey = "smart-saver-photos-v1";
+  var regionStorageKey = "smart-saver-region-v1";
+  var customStoresKey = "smart-saver-custom-stores-v1";
+  var customCountriesKey = "smart-saver-custom-countries-v1";
 
-  const state = {
-    orders: loadOrders(),
-    filterStore: "all"
+  // ─── Default Store Catalogs by City ────────────────────────────────────────
+  var defaultStores = {
+    belgium: [
+      { id: "okay",     shortName: "OKay",         displayName: "OKay Belgium",       badgeClass: "okay",     sourceUrl: "https://www.okay.be" },
+      { id: "ah",       shortName: "Albert Heijn",  displayName: "AH Belgium",         badgeClass: "ah",       sourceUrl: "https://www.ah.be" },
+      { id: "delhaize", shortName: "Delhaize",      displayName: "Delhaize Belgium",   badgeClass: "delhaize", sourceUrl: "https://www.delhaize.be" },
+      { id: "colruyt",  shortName: "Colruyt",       displayName: "Colruyt Belgium",    badgeClass: "colruyt",  sourceUrl: "https://www.colruyt.be" },
+      { id: "lidl",     shortName: "Lidl",          displayName: "Lidl Belgium",       badgeClass: "lidl",     sourceUrl: "https://www.lidl.be" }
+    ],
+    netherlands: [
+      { id: "ah",       shortName: "Albert Heijn",  displayName: "AH Netherlands",     badgeClass: "ah",       sourceUrl: "https://www.ah.nl" },
+      { id: "jumbo",    shortName: "Jumbo",         displayName: "Jumbo Netherlands",  badgeClass: "default",  sourceUrl: "https://www.jumbo.com" },
+      { id: "lidl",     shortName: "Lidl",          displayName: "Lidl Netherlands",   badgeClass: "lidl",     sourceUrl: "https://www.lidl.nl" }
+    ],
+    france: [
+      { id: "carrefour", shortName: "Carrefour",    displayName: "Carrefour France",   badgeClass: "default",  sourceUrl: "https://www.carrefour.fr" },
+      { id: "leclerc",   shortName: "Leclerc",      displayName: "E.Leclerc France",   badgeClass: "default",  sourceUrl: "https://www.e-leclerc.com" }
+    ],
+    germany: [
+      { id: "rewe",     shortName: "REWE",          displayName: "REWE Germany",       badgeClass: "default",  sourceUrl: "https://www.rewe.de" },
+      { id: "lidl",     shortName: "Lidl",          displayName: "Lidl Germany",       badgeClass: "lidl",     sourceUrl: "https://www.lidl.de" }
+    ],
+    china: [
+      { id: "hema",     shortName: "盒马",          displayName: "盒马鲜生",             badgeClass: "default",  sourceUrl: "#" },
+      { id: "walmart",  shortName: "沃尔玛",        displayName: "沃尔玛中国",           badgeClass: "default",  sourceUrl: "#" }
+    ]
   };
 
-  const elements = {
-    storeGrid: document.getElementById("storeGrid"),
-    orderForm: document.getElementById("orderForm"),
-    storeSelect: document.getElementById("storeSelect"),
-    orderDate: document.getElementById("orderDate"),
-    orderTotal: document.getElementById("orderTotal"),
-    orderBasket: document.getElementById("orderBasket"),
-    orderNote: document.getElementById("orderNote"),
-    formFeedback: document.getElementById("formFeedback"),
-    statsGrid: document.getElementById("statsGrid"),
-    orderFilter: document.getElementById("orderFilter"),
-    ordersList: document.getElementById("ordersList"),
-    referenceGrid: document.getElementById("referenceGrid")
+  var defaultCountryLabels = {
+    belgium: "🇧🇪 Belgium",
+    netherlands: "🇳🇱 Netherlands",
+    france: "🇫🇷 France",
+    germany: "🇩🇪 Germany",
+    china: "🇨🇳 China"
   };
 
-  initialize();
+  var currentRegion = localStorage.getItem(regionStorageKey) || "belgium";
+  var userPrices = loadUserPrices();
+  var customStores = loadCustomStores();
+  var customCountries = loadCustomCountries();
+  var selectedCountryTemp = currentRegion; // For confirm step
+  var capturedPhoto = null;
+  var browseCategory = "all";
 
-  function initialize() {
-    renderStoreCards();
-    hydrateStoreSelects();
-    elements.orderDate.value = todayLocalISO();
-    bindEvents();
-    render();
+  function getStoreCatalog() {
+    var base = defaultStores[currentRegion] || [];
+    var custom = (customStores[currentRegion] || []);
+    return base.concat(custom);
   }
 
+  function getAllRecords() {
+    // Seed data is for Belgium; user prices are tagged with region
+    var regionSeed = seedRecords.filter(function (r) {
+      return (r.region || "belgium") === currentRegion;
+    });
+    var regionUser = userPrices.filter(function (r) {
+      return (r.region || "belgium") === currentRegion;
+    });
+    return regionSeed.concat(regionUser);
+  }
+
+  // ─── DOM Elements ──────────────────────────────────────────────────────────
+  var el = {
+    heroEyebrow:     document.getElementById("heroEyebrow"),
+    regionSelect:    document.getElementById("regionSelect"),
+    manageStoresBtn: document.getElementById("manageStoresBtn"),
+    searchInput:     document.getElementById("searchInput"),
+    searchBtn:       document.getElementById("searchBtn"),
+    cameraInput:     document.getElementById("cameraInput"),
+    photoPreview:    document.getElementById("photoPreview"),
+    photoImg:        document.getElementById("photoImg"),
+    removePhoto:     document.getElementById("removePhoto"),
+    resultsSection:  document.getElementById("resultsSection"),
+    resultsTitle:    document.getElementById("resultsTitle"),
+    resultsGrid:     document.getElementById("resultsGrid"),
+    addPriceSection: document.getElementById("addPriceSection"),
+    addPriceForm:    document.getElementById("addPriceForm"),
+    newName:         document.getElementById("newName"),
+    newBrand:        document.getElementById("newBrand"),
+    newStore:        document.getElementById("newStore"),
+    newSize:         document.getElementById("newSize"),
+    newPrice:        document.getElementById("newPrice"),
+    newUnitPrice:    document.getElementById("newUnitPrice"),
+    newUnit:         document.getElementById("newUnit"),
+    newCategory:     document.getElementById("newCategory"),
+    newNotes:        document.getElementById("newNotes"),
+    addFeedback:     document.getElementById("addFeedback"),
+    browseFilter:    document.getElementById("browseFilter"),
+    browseGrid:      document.getElementById("browseGrid"),
+    // Modals
+    storeModal:      document.getElementById("storeModal"),
+    closeModal:      document.getElementById("closeModal"),
+    modalCountryName:document.getElementById("modalCountryName"),
+    storeList:       document.getElementById("storeList"),
+    addStoreForm:    document.getElementById("addStoreForm"),
+    newStoreName:    document.getElementById("newStoreName"),
+    newStoreAddress: document.getElementById("newStoreAddress"),
+    storeFeedback:   document.getElementById("storeFeedback"),
+    countryModal:    document.getElementById("countryModal"),
+    closeCountryModal:document.getElementById("closeCountryModal"),
+    customCountryList:document.getElementById("customCountryList"),
+    confirmCountryBtn:document.getElementById("confirmCountryBtn"),
+    addCountryForm:  document.getElementById("addCountryForm"),
+    newCountryName:  document.getElementById("newCountryName"),
+    newCountryFlag:  document.getElementById("newCountryFlag"),
+    countryFeedback: document.getElementById("countryFeedback")
+  };
+
+  // ─── Initialize ────────────────────────────────────────────────────────────
+  rebuildCountryOptions();
+  el.regionSelect.value = currentRegion;
+  applyRegion();
+  bindEvents();
+
+  // ─── Event Binding ─────────────────────────────────────────────────────────
   function bindEvents() {
-    elements.orderForm.addEventListener("submit", handleOrderSubmit);
-
-    elements.orderFilter.addEventListener("change", function (event) {
-      state.filterStore = event.target.value;
-      renderOrders();
+    el.searchBtn.addEventListener("click", doSearch);
+    el.searchInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); doSearch(); }
     });
-
-    elements.storeGrid.addEventListener("click", function (event) {
-      const trigger = event.target.closest("[data-store-id]");
-      if (!trigger) {
-        return;
-      }
-
-      const storeId = trigger.getAttribute("data-store-id");
-      elements.storeSelect.value = storeId;
-      elements.orderBasket.focus();
-      elements.formFeedback.textContent = "已切换到「" + getStoreName(storeId) + "」，可以直接开始记这单。";
+    el.cameraInput.addEventListener("change", handlePhoto);
+    el.removePhoto.addEventListener("click", clearPhoto);
+    el.addPriceForm.addEventListener("submit", handleAddPrice);
+    el.browseFilter.addEventListener("change", function () {
+      browseCategory = this.value;
+      renderBrowse();
     });
+    el.browseGrid.addEventListener("click", handleBrowseClick);
 
-    elements.ordersList.addEventListener("click", function (event) {
-      const trigger = event.target.closest("[data-delete-order]");
-      if (!trigger) {
-        return;
-      }
+    // Region
+    el.regionSelect.addEventListener("change", handleRegionChange);
 
-      const orderId = trigger.getAttribute("data-delete-order");
-      if (!window.confirm("要删除这笔订单吗？")) {
-        return;
-      }
+    // Store modal
+    el.manageStoresBtn.addEventListener("click", openStoreModal);
+    el.closeModal.addEventListener("click", function () { el.storeModal.hidden = true; });
+    el.storeModal.addEventListener("click", function (e) { if (e.target === el.storeModal) el.storeModal.hidden = true; });
+    el.addStoreForm.addEventListener("submit", handleAddStore);
+    el.storeList.addEventListener("click", handleDeleteStore);
 
-      state.orders = state.orders.filter(function (order) {
-        return order.id !== orderId;
-      });
-
-      saveOrders();
-      render();
-      elements.formFeedback.textContent = "订单已删除。";
-    });
+    // Country modal
+    el.closeCountryModal.addEventListener("click", function () { el.countryModal.hidden = true; });
+    el.countryModal.addEventListener("click", function (e) { if (e.target === el.countryModal) el.countryModal.hidden = true; });
+    el.addCountryForm.addEventListener("submit", handleAddCountry);
+    el.customCountryList.addEventListener("click", handleCountryItemClick);
+    el.confirmCountryBtn.addEventListener("click", handleConfirmCountry);
   }
 
-  function render() {
-    renderStats();
-    renderOrders();
-    renderReferenceCards();
+  // ─── Region / Country ──────────────────────────────────────────────────────
+  function handleRegionChange() {
+    var val = el.regionSelect.value;
+    if (val === "custom") {
+      selectedCountryTemp = currentRegion; // Reset to active
+      renderCustomCountryList();
+      el.countryModal.hidden = false;
+      el.regionSelect.value = currentRegion; // revert while modal is open
+      return;
+    }
+    currentRegion = val;
+    saveRegion();
+    applyRegion();
   }
 
-  function renderStoreCards() {
-    elements.storeGrid.innerHTML = storeCatalog
-      .map(function (store) {
-        return (
-          '<article class="store-card">' +
-          '<img class="store-image" src="' + escapeHtml(store.image) + '" alt="' + escapeHtml(store.imageAlt) + '" />' +
-          '<div class="store-body">' +
-          '<div class="store-topline">' +
-          '<span class="badge ' + escapeHtml(store.badgeClass) + '">' + escapeHtml(store.shortName) + '</span>' +
-          '<span class="sub-badge">Gent</span>' +
-          '</div>' +
-          '<h3>' + escapeHtml(store.displayName) + '</h3>' +
-          '<p class="muted">' + escapeHtml(store.address) + '</p>' +
-          '<p class="muted">' + escapeHtml(store.note) + '</p>' +
-          '<div class="store-actions">' +
-          '<button class="button button-primary" type="button" data-store-id="' + escapeHtml(store.id) + '">记这家</button>' +
-          '<a class="link-button" href="' + escapeHtml(store.sourceUrl) + '" target="_blank" rel="noreferrer">官网门店页</a>' +
-          '</div>' +
-          '</div>' +
-          '</article>'
-        );
-      })
-      .join("");
+  function applyRegion() {
+    var label = defaultCountryLabels[currentRegion] || getCountryLabel(currentRegion);
+    el.heroEyebrow.textContent = "SmartSaver · " + label.replace(/^[^\s]+\s*/, "");
+    populateStoreSelect();
+    renderBrowse();
+    // Clear previous results
+    el.resultsSection.hidden = true;
+    el.addPriceSection.hidden = true;
   }
 
-  function hydrateStoreSelects() {
-    const storeOptions = storeCatalog.map(function (store) {
-      return '<option value="' + escapeHtml(store.id) + '">' + escapeHtml(store.displayName) + '</option>';
+  function getCountryLabel(id) {
+    for (var i = 0; i < customCountries.length; i++) {
+      if (customCountries[i].id === id) return customCountries[i].label;
+    }
+    return id;
+  }
+
+  function rebuildCountryOptions() {
+    var html = '';
+    for (var key in defaultCountryLabels) {
+      html += '<option value="' + key + '">' + defaultCountryLabels[key] + '</option>';
+    }
+    customCountries.forEach(function (c) {
+      html += '<option value="' + esc(c.id) + '">' + esc(c.label) + '</option>';
+    });
+    html += '<option value="custom">➕ Add country...</option>';
+    el.regionSelect.innerHTML = html;
+    el.regionSelect.value = currentRegion;
+    renderCustomCountryList();
+  }
+
+  function renderCustomCountryList() {
+    var allCountries = [];
+    for (var key in defaultCountryLabels) {
+      allCountries.push({ id: key, label: defaultCountryLabels[key], isDefault: true });
+    }
+    customCountries.forEach(function (c) {
+      allCountries.push({ id: c.id, label: c.label, isDefault: false });
+    });
+
+    el.customCountryList.innerHTML = allCountries.map(function (c) {
+      var isSelected = c.id === selectedCountryTemp;
+      return (
+        '<div class="store-item country-item ' + (isSelected ? 'current-country' : '') + '" data-country-id="' + esc(c.id) + '">' +
+        '<span class="store-item-name">' + esc(c.label) + '</span>' +
+        (isSelected ? '<span class="best-tag">Selected</span>' : '') +
+        (!c.isDefault ? '<button class="ghost-button small-btn delete-city-btn" data-delete-country="' + esc(c.id) + '">🗑</button>' : '') +
+        '</div>'
+      );
     }).join("");
-
-    elements.storeSelect.innerHTML = storeOptions;
-    elements.orderFilter.innerHTML =
-      '<option value="all">全部订单</option>' +
-      storeCatalog.map(function (store) {
-        return '<option value="' + escapeHtml(store.id) + '">' + escapeHtml(store.displayName) + '</option>';
-      }).join("");
   }
 
-  function handleOrderSubmit(event) {
-    event.preventDefault();
-
-    const formData = new FormData(elements.orderForm);
-    const storeId = String(formData.get("storeId") || "").trim();
-    const orderedAt = String(formData.get("orderedAt") || "").trim();
-    const basket = String(formData.get("basket") || "").trim();
-    const note = String(formData.get("note") || "").trim();
-    const total = Number(formData.get("total"));
-
-    if (!storeId || !orderedAt || !basket || !Number.isFinite(total) || total <= 0) {
-      elements.formFeedback.textContent = "请至少填写超市、日期、总价和“买了什么”。";
+  function handleCountryItemClick(e) {
+    var deleteBtn = e.target.closest("[data-delete-country]");
+    if (deleteBtn) {
+      e.stopPropagation();
+      var countryId = deleteBtn.getAttribute("data-delete-country");
+      if (confirm("Delete database for " + countryId + "? This cannot be undone.")) {
+        customCountries = customCountries.filter(function(c) { return c.id !== countryId; });
+        saveCustomCountries();
+        rebuildCountryOptions();
+      }
       return;
     }
 
-    const order = {
-      id: "order-" + Date.now(),
-      storeId: storeId,
-      orderedAt: orderedAt,
-      total: total,
-      basket: basket,
-      note: note,
-      createdAt: new Date().toISOString()
+    var item = e.target.closest("[data-country-id]");
+    if (!item) return;
+
+    selectedCountryTemp = item.getAttribute("data-country-id");
+    renderCustomCountryList();
+  }
+
+  function handleConfirmCountry() {
+    currentRegion = selectedCountryTemp;
+    saveRegion();
+    applyRegion();
+    el.regionSelect.value = currentRegion;
+    el.countryModal.hidden = true;
+  }
+
+  function handleAddCountry(e) {
+    e.preventDefault();
+    var name = el.newCountryName.value.trim();
+    var flag = el.newCountryFlag.value.trim() || "🌍";
+    if (!name) return;
+
+    var id = name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    if (defaultCountryLabels[id] || customCountries.some(function (c) { return c.id === id; })) {
+      el.countryFeedback.textContent = "This country already exists.";
+      return;
+    }
+
+    customCountries.push({ id: id, label: flag + " " + name });
+    saveCustomCountries();
+    rebuildCountryOptions();
+
+    selectedCountryTemp = id;
+    renderCustomCountryList();
+    
+    el.addCountryForm.reset();
+    el.countryFeedback.textContent = "";
+  }
+
+  // ─── Store Management ──────────────────────────────────────────────────────
+  function openStoreModal() {
+    var label = defaultCountryLabels[currentRegion] || getCountryLabel(currentRegion);
+    el.modalCountryName.textContent = label;
+    renderStoreList();
+    el.storeModal.hidden = false;
+  }
+
+  function renderStoreList() {
+    var stores = getStoreCatalog();
+    el.storeList.innerHTML = stores.map(function (s) {
+      var isCustom = !!(customStores[currentRegion] || []).find(function (cs) { return cs.id === s.id; });
+      return (
+        '<div class="store-item">' +
+        '<span class="badge ' + s.badgeClass + '">' + esc(s.shortName) + '</span>' +
+        '<span class="store-item-name">' + esc(s.displayName) + '</span>' +
+        (isCustom ? '<button class="ghost-button small-btn" data-delete-store="' + esc(s.id) + '">🗑</button>' : '<span class="store-item-default">Built-in</span>') +
+        '</div>'
+      );
+    }).join("");
+  }
+
+  function handleAddStore(e) {
+    e.preventDefault();
+    var name = el.newStoreName.value.trim();
+    var address = el.newStoreAddress.value.trim();
+    if (!name) return;
+
+    var id = currentRegion + "-" + name.toLowerCase().replace(/[^a-z0-9]/g, "-");
+    var store = {
+      id: id,
+      shortName: name,
+      displayName: name + (address ? " (" + address + ")" : ""),
+      badgeClass: "default",
+      sourceUrl: "",
+      address: address
     };
 
-    state.orders.unshift(order);
-    saveOrders();
-    render();
+    if (!customStores[currentRegion]) customStores[currentRegion] = [];
+    customStores[currentRegion].push(store);
+    saveCustomStores();
 
-    elements.orderForm.reset();
-    elements.storeSelect.value = storeId;
-    elements.orderDate.value = todayLocalISO();
-    elements.formFeedback.textContent = "已保存「" + getStoreName(storeId) + "」的新订单。";
+    renderStoreList();
+    populateStoreSelect();
+    el.addStoreForm.reset();
+    el.storeFeedback.textContent = '✅ Added "' + name + '"';
   }
 
-  function renderStats() {
-    const orders = state.orders.slice();
-    const totalSpent = orders.reduce(function (sum, order) {
-      return sum + order.total;
-    }, 0);
-    const average = orders.length > 0 ? totalSpent / orders.length : 0;
-    const topStore = getTopStore(orders);
+  function handleDeleteStore(e) {
+    var btn = e.target.closest("[data-delete-store]");
+    if (!btn) return;
+    var storeId = btn.getAttribute("data-delete-store");
 
-    const cards = [
-      {
-        label: "已记录订单",
-        value: String(orders.length),
-        note: orders.length > 0 ? "订单会保存在当前浏览器" : "先记第一单，后面就会累积"
-      },
-      {
-        label: "累计花费",
-        value: formatMoney(totalSpent),
-        note: orders.length > 0 ? "平均每单 " + formatMoney(average) : "还没有数据"
-      },
-      {
-        label: "最常去超市",
-        value: topStore ? topStore.name : "待生成",
-        note: topStore ? "当前出现 " + topStore.count + " 次" : "至少保存一单后再统计"
-      }
-    ];
-
-    elements.statsGrid.innerHTML = cards
-      .map(function (card) {
-        return (
-          '<article class="stat-card">' +
-          '<div class="stat-label">' + escapeHtml(card.label) + '</div>' +
-          '<div class="stat-value">' + escapeHtml(card.value) + '</div>' +
-          '<div class="muted">' + escapeHtml(card.note) + '</div>' +
-          '</article>'
-        );
-      })
-      .join("");
+    customStores[currentRegion] = (customStores[currentRegion] || []).filter(function (s) {
+      return s.id !== storeId;
+    });
+    saveCustomStores();
+    renderStoreList();
+    populateStoreSelect();
   }
 
-  function renderOrders() {
-    const orders = getVisibleOrders();
+  // ─── Search ────────────────────────────────────────────────────────────────
+  function doSearch() {
+    var query = el.searchInput.value.trim().toLowerCase();
+    if (query.length < 1) return;
 
-    if (orders.length === 0) {
-      elements.ordersList.innerHTML = '<div class="empty-state">这里还没有订单。先记一单，后面就能按超市回看。</div>';
+    var all = getAllRecords();
+    var matches = all.filter(function (r) {
+      var haystack = [
+        r.name, r.brand, r.category,
+        r.comparisonGroup, r.notes,
+        (r.tags || []).join(" ")
+      ].join(" ").toLowerCase();
+      return haystack.indexOf(query) !== -1;
+    });
+
+    // Also find records in the same comparison groups
+    var groups = {};
+    matches.forEach(function (m) {
+      if (m.comparisonGroup) groups[m.comparisonGroup] = true;
+    });
+    var groupMatches = all.filter(function (r) {
+      return r.comparisonGroup && groups[r.comparisonGroup] && matches.indexOf(r) === -1;
+    });
+
+    var combined = matches.concat(groupMatches);
+    combined.sort(function (a, b) {
+      var ua = isNum(a.unitPrice) ? a.unitPrice : 99999;
+      var ub = isNum(b.unitPrice) ? b.unitPrice : 99999;
+      return ua - ub;
+    });
+
+    renderResults(query, combined);
+  }
+
+  function renderResults(query, records) {
+    el.resultsSection.hidden = false;
+    el.addPriceSection.hidden = false;
+    el.resultsTitle.textContent = records.length + ' results for "' + query + '"';
+    el.newName.value = el.searchInput.value.trim();
+
+    if (records.length === 0) {
+      el.resultsGrid.innerHTML =
+        '<div class="empty-state">No matches found. Add this product below! ⬇️</div>';
       return;
     }
 
-    elements.ordersList.innerHTML = orders
-      .map(function (order) {
-        const store = getStore(order.storeId);
-        return (
-          '<article class="order-card">' +
-          '<div class="order-topline">' +
-          '<span class="badge ' + escapeHtml(store.badgeClass) + '">' + escapeHtml(store.shortName) + '</span>' +
-          '<span class="sub-badge">' + escapeHtml(formatDate(order.orderedAt)) + '</span>' +
-          '</div>' +
-          '<div class="order-total">' + escapeHtml(formatMoney(order.total)) + '</div>' +
-          '<div class="order-meta">' + escapeHtml(order.basket) + '</div>' +
-          (order.note ? '<div class="order-meta">备注：' + escapeHtml(order.note) + '</div>' : '') +
-          '<div class="order-actions">' +
-          '<a class="link-button" href="' + escapeHtml(store.sourceUrl) + '" target="_blank" rel="noreferrer">看官网门店页</a>' +
-          '<button class="ghost-button" type="button" data-delete-order="' + escapeHtml(order.id) + '">删除</button>' +
-          '</div>' +
-          '</article>'
-        );
-      })
-      .join("");
-  }
-
-  function renderReferenceCards() {
-    const references = [
-      {
-        label: "早餐谷物",
-        description: "你原来价格库里目前最稳的 granola 参考。",
-        record: getGroupWinner("granola")
-      },
-      {
-        label: "卷纸",
-        description: "纸品还是保留一个底价参考最省心。",
-        record: getGroupWinner("toilet-paper")
-      },
-      {
-        label: "酸奶",
-        description: "高频补货品只保留一个最低记忆点。",
-        record: getGroupWinner("yoghurt")
-      }
-    ];
-
-    elements.referenceGrid.innerHTML = references
-      .map(function (item) {
-        if (!item.record) {
-          return (
-            '<article class="reference-card">' +
-            '<div class="reference-topline"><span class="sub-badge">' + escapeHtml(item.label) + '</span></div>' +
-            '<h3>还没有基准</h3>' +
-            '<div class="reference-detail">' + escapeHtml(item.description) + '</div>' +
-            '</article>'
-          );
-        }
-
-        return (
-          '<article class="reference-card">' +
-          '<div class="reference-topline"><span class="sub-badge">' + escapeHtml(item.label) + '</span></div>' +
-          '<h3>' + escapeHtml(item.record.name) + '</h3>' +
-          '<div class="reference-detail">' +
-          escapeHtml(item.record.storeName + ' · ' + formatMoney(item.record.totalPrice) + ' · ' + formatUnitPrice(item.record.unitPrice, item.record.normalizedUnit)) +
-          '</div>' +
-          '<div class="reference-detail">' + escapeHtml(item.description) + '</div>' +
-          '</article>'
-        );
-      })
-      .join("");
-  }
-
-  function getVisibleOrders() {
-    return state.orders
-      .filter(function (order) {
-        return state.filterStore === "all" || order.storeId === state.filterStore;
-      })
-      .slice()
-      .sort(function (left, right) {
-        if (left.orderedAt === right.orderedAt) {
-          return right.createdAt.localeCompare(left.createdAt);
-        }
-
-        return right.orderedAt.localeCompare(left.orderedAt);
-      });
-  }
-
-  function getGroupWinner(groupKey) {
-    const records = seedRecords.filter(function (record) {
-      return record.comparisonGroup === groupKey && isNumber(record.unitPrice) && record.normalizedUnit;
+    var cheapestPrice = null;
+    records.forEach(function (r) {
+      if (isNum(r.unitPrice) && (cheapestPrice === null || r.unitPrice < cheapestPrice))
+        cheapestPrice = r.unitPrice;
     });
 
-    if (records.length === 0) {
-      return null;
-    }
+    el.resultsGrid.innerHTML = records.map(function (r) {
+      var isCheapest = isNum(r.unitPrice) && r.unitPrice === cheapestPrice;
+      var priceClass = isCheapest ? "price-best" : (isNum(r.unitPrice) && r.unitPrice > cheapestPrice * 1.3) ? "price-high" : "";
+      var badge = getStoreBadge(r.storeId || "", r.storeName || "");
+      var userTag = r._isUser ? '<span class="user-tag">You</span>' : '';
+      var promoTag = r.promotion ? '<span class="promo-tag">Promo</span>' : '';
 
-    return records.slice().sort(function (left, right) {
-      return left.unitPrice - right.unitPrice;
-    })[0];
+      return (
+        '<article class="result-card ' + (isCheapest ? 'best-deal' : '') + '">' +
+        '<div class="result-topline">' + badge + userTag + promoTag +
+        (isCheapest ? '<span class="best-tag">✅ Best Price</span>' : '') +
+        '</div>' +
+        '<h3>' + esc(r.name) + '</h3>' +
+        '<div class="result-brand">' + esc(r.brand || "") + ' · ' + esc(r.sizeLabel || "") + '</div>' +
+        '<div class="result-prices">' +
+        '<span class="result-total ' + priceClass + '">€' + formatNum(r.totalPrice) + '</span>' +
+        '<span class="result-unit">' + formatUnitPrice(r.unitPrice, r.normalizedUnit) + '</span>' +
+        '</div>' +
+        (r.notes ? '<div class="result-note">' + esc(r.notes) + '</div>' : '') +
+        '</article>'
+      );
+    }).join("");
   }
 
-  function getTopStore(orders) {
-    if (orders.length === 0) {
-      return null;
+  // ─── Camera / Photo ────────────────────────────────────────────────────────
+  function handlePhoto(e) {
+    var file = e.target.files && e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function (ev) {
+      capturedPhoto = ev.target.result;
+      el.photoImg.src = capturedPhoto;
+      el.photoPreview.hidden = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearPhoto() {
+    capturedPhoto = null;
+    el.photoPreview.hidden = true;
+    el.cameraInput.value = "";
+  }
+
+  // ─── Add New Price ─────────────────────────────────────────────────────────
+  function handleAddPrice(e) {
+    e.preventDefault();
+    var name = el.newName.value.trim();
+    var brand = el.newBrand.value.trim();
+    var storeId = el.newStore.value;
+    var size = el.newSize.value.trim();
+    var price = parseFloat(el.newPrice.value);
+    var unitPrice = parseFloat(el.newUnitPrice.value);
+    var unit = el.newUnit.value;
+    var category = el.newCategory.value;
+    var notes = el.newNotes.value.trim();
+
+    if (!name || !isNum(price)) {
+      el.addFeedback.textContent = "Please fill in at least the product name and price.";
+      return;
     }
 
-    const counts = orders.reduce(function (result, order) {
-      result[order.storeId] = (result[order.storeId] || 0) + 1;
-      return result;
-    }, {});
+    var store = getStore(storeId);
+    var record = {
+      id: "user-" + Date.now(),
+      storeId: storeId,
+      storeName: store ? store.displayName : storeId,
+      chain: store ? store.shortName : "",
+      category: category,
+      comparisonGroup: nameToGroup(name),
+      name: name,
+      brand: brand,
+      sizeLabel: size,
+      totalPrice: price,
+      unitPrice: isNum(unitPrice) ? unitPrice : null,
+      normalizedUnit: isNum(unitPrice) ? unit : null,
+      recordedAt: todayISO(),
+      healthScore: null,
+      nutriScore: null,
+      promotion: false,
+      tags: [],
+      notes: notes,
+      region: currentRegion,
+      _isUser: true
+    };
 
-    return Object.keys(counts)
-      .map(function (storeId) {
-        return {
-          id: storeId,
-          name: getStoreName(storeId),
-          count: counts[storeId]
-        };
-      })
-      .sort(function (left, right) {
-        return right.count - left.count;
-      })[0];
+    if (capturedPhoto) {
+      record.photoId = "photo-" + Date.now();
+      savePhoto(record.photoId, capturedPhoto);
+      clearPhoto();
+    }
+
+    userPrices.push(record);
+    saveUserPrices();
+
+    var storeName = store ? store.displayName : storeId;
+    el.addFeedback.textContent = '✅ Saved "' + name + '" at ' + storeName + ' (€' + price.toFixed(2) + ')';
+    el.addPriceForm.reset();
+    el.newStore.value = storeId;
+
+    if (el.searchInput.value.trim()) doSearch();
+    renderBrowse();
+  }
+
+  // ─── Browse All ────────────────────────────────────────────────────────────
+  function renderBrowse() {
+    var all = getAllRecords();
+    if (browseCategory !== "all") {
+      all = all.filter(function (r) { return r.category === browseCategory; });
+    }
+    all.sort(function (a, b) {
+      if (a.category !== b.category) return a.category.localeCompare(b.category);
+      var ua = isNum(a.unitPrice) ? a.unitPrice : 99999;
+      var ub = isNum(b.unitPrice) ? b.unitPrice : 99999;
+      return ua - ub;
+    });
+
+    if (all.length === 0) {
+      el.browseGrid.innerHTML = '<div class="empty-state">No products recorded for this city yet. Start adding prices!</div>';
+      return;
+    }
+
+    el.browseGrid.innerHTML = all.map(function (r) {
+      var badge = getStoreBadge(r.storeId || "", r.storeName || "");
+      var userTag = r._isUser ? '<span class="user-tag">You</span>' : '';
+      return (
+        '<article class="result-card browse-card" data-product-name="' + esc(r.name) + '">' +
+        '<div class="result-topline">' + badge + userTag +
+        '<span class="sub-badge">' + esc(categoryLabel(r.category)) + '</span>' +
+        '</div>' +
+        '<h3>' + esc(r.name) + '</h3>' +
+        '<div class="result-brand">' + esc(r.brand || "") + ' · ' + esc(r.sizeLabel || "") + '</div>' +
+        '<div class="result-prices">' +
+        '<span class="result-total">€' + formatNum(r.totalPrice) + '</span>' +
+        '<span class="result-unit">' + formatUnitPrice(r.unitPrice, r.normalizedUnit) + '</span>' +
+        '</div>' +
+        '</article>'
+      );
+    }).join("");
+  }
+
+  function handleBrowseClick(e) {
+    var card = e.target.closest("[data-product-name]");
+    if (!card) return;
+    el.searchInput.value = card.getAttribute("data-product-name");
+    doSearch();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // ─── Helpers ───────────────────────────────────────────────────────────────
+  function populateStoreSelect() {
+    var stores = getStoreCatalog();
+    el.newStore.innerHTML = stores.map(function (s) {
+      return '<option value="' + esc(s.id) + '">' + esc(s.displayName) + '</option>';
+    }).join("");
   }
 
   function getStore(storeId) {
-    return storeCatalog.find(function (store) {
-      return store.id === storeId;
-    }) || storeCatalog[0];
+    var stores = getStoreCatalog();
+    return stores.find(function (s) { return s.id === storeId; }) || null;
   }
 
-  function getStoreName(storeId) {
-    return getStore(storeId).displayName;
+  function getStoreBadge(storeId, storeName) {
+    var stores = getStoreCatalog();
+    var store = stores.find(function (s) { return s.id === storeId; });
+    var cls = store ? store.badgeClass : "default";
+    var label = store ? store.shortName : (storeName || "Store");
+    return '<span class="badge ' + cls + '">' + esc(label) + '</span>';
   }
 
-  function loadOrders() {
+  function nameToGroup(name) {
+    var lower = name.toLowerCase();
+    var map = {
+      "黄瓜": "cucumber", "komkommer": "cucumber",
+      "葱": "spring-onion", "ui": "spring-onion",
+      "燕麦": "oats", "havermout": "oats",
+      "麦片": "granola", "muesli": "granola", "granola": "granola",
+      "卷纸": "toilet-paper", "卫生纸": "toilet-paper", "toiletpapier": "toilet-paper",
+      "酸奶": "yoghurt", "yoghurt": "yoghurt",
+      "牛奶": "milk", "melk": "milk",
+      "鸡蛋": "eggs", "eieren": "eggs",
+      "五花肉": "pork-belly", "spek": "pork-belly",
+      "鸡": "chicken", "kip": "chicken",
+      "虾": "shrimp", "garnalen": "shrimp",
+      "三文鱼": "smoked-salmon", "zalm": "smoked-salmon",
+      "甜椒": "bell-pepper", "paprika": "bell-pepper",
+      "芦笋": "asparagus", "asperges": "asparagus",
+      "牛油果": "avocado", "avocado": "avocado",
+      "香蕉": "banana", "banaan": "banana",
+      "腰果": "nuts", "cashew": "nuts",
+      "杏仁": "nuts", "amandel": "nuts",
+      "核桃": "nuts", "walnoot": "nuts",
+      "厨房纸": "kitchen-roll", "keukenrol": "kitchen-roll",
+      "抽纸": "tissue-box", "tissue": "tissue-box",
+      "冰淇淋": "ice-cream", "ijs": "ice-cream",
+      "油": "cooking-oil", "olie": "cooking-oil"
+    };
+    for (var key in map) {
+      if (lower.indexOf(key) !== -1) return map[key];
+    }
+    return lower.replace(/[^a-z0-9\u4e00-\u9fff]/g, "-").substring(0, 30);
+  }
+
+  function categoryLabel(cat) {
+    var map = {
+      "粮油早餐": "Groceries", "蛋奶乳品": "Dairy", "肉类海鲜": "Meat",
+      "生鲜果蔬": "Produce", "冷冻蔬菜": "Frozen", "坚果零食": "Snacks", "居家日化": "Household"
+    };
+    return map[cat] || cat;
+  }
+
+  function formatNum(val) { return isNum(val) ? val.toFixed(2) : "--"; }
+  function formatUnitPrice(val, unit) {
+    if (!isNum(val) || !unit) return "";
+    return "€" + val.toFixed(val < 0.1 ? 3 : 2) + " / " + unit;
+  }
+  function isNum(v) { return typeof v === "number" && isFinite(v); }
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  // ─── Storage ───────────────────────────────────────────────────────────────
+  var userStorageBase = "smart-saver-user-prices-v2";
+  var regionStorageBase = "smart-saver-region-v1";
+  var customStoresBase = "smart-saver-custom-stores-v1";
+  var customCitiesBase = "smart-saver-custom-cities-v1";
+  function loadRegion() {
+    return localStorage.getItem(regionStorageKey) || "gent";
+  }
+  function saveRegion() {
+    localStorage.setItem(regionStorageKey, currentRegion);
+  }
+  function loadUserPrices() {
     try {
-      const raw = window.localStorage.getItem(orderStorageKey);
-      if (!raw) {
-        return [];
-      }
-
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.filter(isValidOrder) : [];
-    } catch (error) {
-      return [];
-    }
+      var raw = localStorage.getItem(userStorageKey);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed.map(function (r) { r._isUser = true; return r; }) : [];
+    } catch (e) { return []; }
+  }
+  function saveUserPrices() {
+    localStorage.setItem(userStorageKey, JSON.stringify(userPrices));
+  }
+  function loadCustomStores() {
+    try {
+      return JSON.parse(localStorage.getItem(customStoresKey) || "{}");
+    } catch (e) { return {}; }
+  }
+  function saveCustomStores() {
+    localStorage.setItem(customStoresKey, JSON.stringify(customStores));
+  }
+  function loadCustomCountries() {
+    try {
+      return JSON.parse(localStorage.getItem(customCountriesKey) || "[]");
+    } catch (e) { return []; }
+  }
+  function saveCustomCountries() {
+    localStorage.setItem(customCountriesKey, JSON.stringify(customCountries));
+  }
+  function savePhoto(id, dataUrl) {
+    try {
+      var photos = JSON.parse(localStorage.getItem(photoStorageKey) || "{}");
+      photos[id] = dataUrl;
+      localStorage.setItem(photoStorageKey, JSON.stringify(photos));
+    } catch (e) { /* storage full */ }
   }
 
-  function saveOrders() {
-    window.localStorage.setItem(orderStorageKey, JSON.stringify(state.orders));
-  }
-
-  function isValidOrder(order) {
-    return Boolean(order && order.id && order.storeId && order.orderedAt && isNumber(order.total));
-  }
-
-  function formatMoney(value) {
-    if (!isNumber(value)) {
-      return "€0.00";
-    }
-
-    return "€" + value.toFixed(2);
-  }
-
-  function formatUnitPrice(value, unit) {
-    if (!isNumber(value) || !unit) {
-      return "单价待补充";
-    }
-
-    const digits = value < 0.1 ? 3 : 2;
-    return "€" + value.toFixed(digits) + " / " + unit;
-  }
-
-  function formatDate(value) {
-    const date = new Date(value + "T12:00:00");
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-
-    return new Intl.DateTimeFormat("zh-CN", {
-      month: "short",
-      day: "numeric"
-    }).format(date);
-  }
-
-  function todayLocalISO() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return year + "-" + month + "-" + day;
-  }
-
-  function isNumber(value) {
-    return typeof value === "number" && Number.isFinite(value);
-  }
-
-  function escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+  function esc(val) {
+    return String(val == null ? "" : val)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 })();

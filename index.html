@@ -1,138 +1,215 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SmartSaver | Gent 购物订单记录</title>
-    <meta
-      name="description"
-      content="SmartSaver 是一个为 Gent 日常采购准备的简化版订单记录页。先看常去超市，再手动记一单。"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>SmartSaver | Price Compare</title>
+    <meta name="description" content="SmartSaver — search a product, compare prices across Ghent supermarkets, and log new prices on the spot." />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <div class="page-shell">
       <header class="hero">
-        <div>
-          <p class="eyebrow">SmartSaver Gent</p>
-          <h1>先选超市，再手动记一单。</h1>
-          <p class="hero-copy">
-            我把页面改成了更直接的订单流：上面看 Gent 常去超市，下面只保留手动添加订单和最近记录。
-            原来的复杂对比逻辑退到最底部，变成简单参考，不再抢你的注意力。
-          </p>
-        </div>
-        <div class="hero-note">
-          <strong>图片说明</strong>
-          <p>
-            门店卡片图片来自 2026 年 4 月 12 日查验的官方门店页或官方门店素材。
-            页面内保留了官网入口，方便你直接跳回原站查看。
-          </p>
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow" id="heroEyebrow">SmartSaver</p>
+            <h1>🔍 What did you find?</h1>
+            <p class="hero-copy">
+              Type a product name (Chinese or Dutch) or take a photo — instantly compare prices across stores.
+            </p>
+          </div>
+          <div class="region-selector">
+            <label class="region-label">📍 Country / Database</label>
+            <select id="regionSelect">
+              <option value="belgium">🇧🇪 Belgium</option>
+              <option value="netherlands">🇳🇱 Netherlands</option>
+              <option value="france">🇫🇷 France</option>
+              <option value="germany">🇩🇪 Germany</option>
+              <option value="china">🇨🇳 China</option>
+              <option value="custom">➕ Add country...</option>
+            </select>
+            <button id="manageStoresBtn" class="ghost-button small-btn" type="button">🏪 Manage Stores</button>
+          </div>
         </div>
       </header>
 
       <main>
-        <section class="section">
-          <div class="section-heading compact-heading">
-            <div>
-              <p class="eyebrow">Gent 超市</p>
-              <h2>常去门店放在最前面。</h2>
-            </div>
-            <p class="section-copy">点“记这家”会直接把门店带入下面的订单表单。</p>
+        <!-- ── Search Section ── -->
+        <section class="section search-section">
+          <div class="search-bar">
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="输入商品名 e.g. 黄瓜, Komkommer, 卷纸..."
+              autocomplete="off"
+            />
+            <label class="camera-btn" title="Take a photo">
+              📷
+              <input id="cameraInput" type="file" accept="image/*" capture="environment" hidden />
+            </label>
+            <button id="searchBtn" class="button button-primary" type="button">Search</button>
           </div>
-          <div id="storeGrid" class="store-grid" aria-live="polite"></div>
+          <div id="photoPreview" class="photo-preview" hidden>
+            <img id="photoImg" alt="Captured product photo" />
+            <button id="removePhoto" class="ghost-button" type="button">✕ Remove</button>
+          </div>
         </section>
 
-        <section class="section workspace">
+        <!-- ── Comparison Results ── -->
+        <section id="resultsSection" class="section" hidden>
+          <div class="section-heading compact-heading">
+            <div>
+              <p class="eyebrow">Price Comparison</p>
+              <h2 id="resultsTitle">Results</h2>
+            </div>
+          </div>
+          <div id="resultsGrid" class="results-grid" aria-live="polite"></div>
+        </section>
+
+        <!-- ── Add New Price ── -->
+        <section id="addPriceSection" class="section workspace" hidden>
           <div class="order-panel">
             <div class="section-heading compact-heading">
               <div>
-                <p class="eyebrow">手动添加订单</p>
-                <h2>记住这次买了什么、花了多少。</h2>
+                <p class="eyebrow">Add to Database</p>
+                <h2>Log this price for future comparison</h2>
               </div>
             </div>
-
-            <form id="orderForm" class="order-form">
+            <form id="addPriceForm" class="order-form">
               <label>
-                超市
-                <select id="storeSelect" name="storeId"></select>
+                Product Name
+                <input id="newName" name="name" type="text" placeholder="e.g. 黄瓜 (Komkommer)" required />
               </label>
-
               <label>
-                日期
-                <input id="orderDate" name="orderedAt" type="date" required />
+                Brand
+                <input id="newBrand" name="brand" type="text" placeholder="e.g. Boni" />
               </label>
-
               <label>
-                总价（欧元）
-                <input id="orderTotal" name="total" type="number" min="0" step="0.01" placeholder="例如 26.40" required />
+                Store
+                <select id="newStore" name="storeId"></select>
               </label>
-
+              <label>
+                Size / Spec
+                <input id="newSize" name="size" type="text" placeholder="e.g. 1 kg, 6 rolls" />
+              </label>
+              <label>
+                Price (€)
+                <input id="newPrice" name="price" type="number" min="0" step="0.01" placeholder="e.g. 0.99" required />
+              </label>
+              <label>
+                Unit Price (€)
+                <input id="newUnitPrice" name="unitPrice" type="number" min="0" step="0.001" placeholder="e.g. 0.99" />
+              </label>
+              <label>
+                Unit
+                <select id="newUnit" name="unit">
+                  <option value="kg">€ / kg</option>
+                  <option value="L">€ / L</option>
+                  <option value="个">€ / pc</option>
+                  <option value="卷">€ / roll</option>
+                  <option value="把">€ / bunch</option>
+                  <option value="根">€ / piece</option>
+                  <option value="抽">€ / sheet</option>
+                  <option value="盒">€ / box</option>
+                </select>
+              </label>
+              <label>
+                Category
+                <select id="newCategory" name="category">
+                  <option value="粮油早餐">Groceries & Breakfast</option>
+                  <option value="蛋奶乳品">Dairy & Eggs</option>
+                  <option value="肉类海鲜">Meat & Seafood</option>
+                  <option value="生鲜果蔬">Fresh Produce</option>
+                  <option value="冷冻蔬菜">Frozen Vegetables</option>
+                  <option value="坚果零食">Nuts & Snacks</option>
+                  <option value="居家日化">Household</option>
+                </select>
+              </label>
               <label class="full-span">
-                买了什么
-                <textarea
-                  id="orderBasket"
-                  name="basket"
-                  rows="4"
-                  placeholder="例如：燕麦、酸奶、鸡蛋、卷纸"
-                  required
-                ></textarea>
+                Notes
+                <input id="newNotes" name="notes" type="text" placeholder="e.g. On promotion, Nutri-Score A" />
               </label>
-
-              <label class="full-span">
-                备注
-                <textarea
-                  id="orderNote"
-                  name="note"
-                  rows="3"
-                  placeholder="例如：今天主要是补早餐；卷纸没买到便宜的"
-                ></textarea>
-              </label>
-
-              <button class="button button-primary full-span" type="submit">保存这笔订单</button>
+              <button class="button button-primary full-span" type="submit">💾 Save to Database</button>
             </form>
-
-            <p id="formFeedback" class="feedback" aria-live="polite"></p>
+            <p id="addFeedback" class="feedback" aria-live="polite"></p>
           </div>
-
-          <aside class="summary-panel">
-            <div class="section-heading compact-heading no-margin">
-              <div>
-                <p class="eyebrow">订单概览</p>
-                <h2>只保留最必要的 3 个数。</h2>
-              </div>
-            </div>
-            <div id="statsGrid" class="stats-grid" aria-live="polite"></div>
-          </aside>
         </section>
 
+        <!-- ── Quick Browse All ── -->
         <section class="section">
           <div class="section-heading compact-heading">
             <div>
-              <p class="eyebrow">最近订单</p>
-              <h2>回看最近几次买菜和补货。</h2>
+              <p class="eyebrow">Full Database</p>
+              <h2>Browse all recorded prices</h2>
             </div>
             <label class="filter-field">
-              只看某家店
-              <select id="orderFilter"></select>
+              Category
+              <select id="browseFilter">
+                <option value="all">All</option>
+                <option value="粮油早餐">Groceries</option>
+                <option value="蛋奶乳品">Dairy</option>
+                <option value="肉类海鲜">Meat & Seafood</option>
+                <option value="生鲜果蔬">Fresh Produce</option>
+                <option value="冷冻蔬菜">Frozen Veg</option>
+                <option value="坚果零食">Nuts & Snacks</option>
+                <option value="居家日化">Household</option>
+              </select>
             </label>
           </div>
-          <div id="ordersList" class="orders-list" aria-live="polite"></div>
-        </section>
-
-        <section class="section soft-section">
-          <div class="section-heading compact-heading">
-            <div>
-              <p class="eyebrow">简化后的价格参考</p>
-              <h2>旧的比价能力不删，只缩成一排提示。</h2>
-            </div>
-            <p class="section-copy">这部分仍然读取你原先的价格基准库，但不再占据主界面。</p>
-          </div>
-          <div id="referenceGrid" class="reference-grid" aria-live="polite"></div>
+          <div id="browseGrid" class="results-grid" aria-live="polite"></div>
         </section>
       </main>
+    </div>
+
+    <!-- ── Store Management Modal ── -->
+    <div id="storeModal" class="modal-overlay" hidden>
+      <div class="modal">
+        <div class="modal-header">
+          <h2>🏪 Manage Stores — <span id="modalCountryName">Belgium</span></h2>
+          <button id="closeModal" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="storeList" class="store-list"></div>
+          <hr class="modal-divider" />
+          <h3>Add a new store</h3>
+          <form id="addStoreForm" class="add-store-form">
+            <input id="newStoreName" type="text" placeholder="Store name, e.g. Aldi, Carrefour..." required />
+            <input id="newStoreAddress" type="text" placeholder="Address (optional)" />
+            <button class="button button-primary" type="submit">+ Add Store</button>
+          </form>
+          <p id="storeFeedback" class="feedback"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Custom Country Modal ── -->
+    <div id="countryModal" class="modal-overlay" hidden>
+      <div class="modal modal-small">
+        <div class="modal-header">
+          <h2>🌍 Switch Country / Database</h2>
+          <button id="closeCountryModal" class="ghost-button" type="button">✕</button>
+        </div>
+        <div class="modal-body">
+          <div id="customCountryList" class="store-list" style="margin-bottom: 20px;"></div>
+          
+          <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 20px;">
+             <button id="confirmCountryBtn" class="button button-primary" type="button">Confirm & Enter</button>
+          </div>
+          
+          <hr class="modal-divider" />
+          <h3>Add a new country</h3>
+          <form id="addCountryForm" class="add-store-form">
+            <input id="newCountryName" type="text" placeholder="Country name, e.g. Japan, UK..." required />
+            <input id="newCountryFlag" type="text" placeholder="Country flag + name, e.g. 🇯🇵 Japan" />
+            <button class="button button-primary" type="submit">+ Add Country</button>
+          </form>
+          <p id="countryFeedback" class="feedback"></p>
+        </div>
+      </div>
     </div>
 
     <script src="./data/prices.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>
+
